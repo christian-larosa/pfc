@@ -1,0 +1,350 @@
+name: qc_campaigns
+table_description: |
+  This table contains information on Promo tool campaigns. It combines the information about the campaigns themselves
+  with information about their triggers, benefits, and vendors.
+
+  #### Triggers
+
+  A campaign trigger is the product (SKU) or combination of products (SKUs) that the user needs to add to his/her cart
+  in order to cause the campaign to be applied to the cart.
+
+  #### Benefits
+
+  A campaign benefit is the product or combination of products that the user receives when a given campaign is applied
+  to the user's cart.
+
+  While creating a campaign, benefits are set in two steps. Firstly, a global benefit is set. This discount type and
+  value will apply by default to all benefit SKUs. Then, benefits that apply for specific SKUs can be set. The global
+  benefits are recorded in the `discount_type` and `discount_value` columns, while SKU specific benefits are recorded
+  in the `benefits.discount_type` and `benefits.discount_value` columns.
+
+  #### Vendors
+
+  The campaign-vendor pairs found in the `vendors` array do not mean that the campaign will be available in a given
+  vendor, as the vendor might not carry any of the SKUs that participate in the campaign. The campaign will
+  automatically become available if the vendor decides to start carrying the participating SKUs.
+
+  #### Campaigns with empty arrays
+
+  Not all campaigns will have all three: benefits, triggers, and vendors. Here are some examples:
+
+  - With benefits but not triggers: in 'Sampling without trigger' campaigns we offer customers the opportunity to
+    sample products. These campaigns will have benefits (the product to be sampled), but no triggers. There are also
+    cases of 'Sampling with trigger', but those have both benefits and triggers.
+
+  - With triggers but no benefits: we can observe this in 'Item Based Delivery Fee' campaigns. In these campaigns, we
+    offer the customer free delivery if a certain product is included in the purchase. Since delivery does not have a
+    specific SKU, there are no benefits.
+
+  - No triggers and no benefits: this is the case for Basket level campaigns. In these campaigns we grant the users a
+    discount or rebate if a certain basket value is reached (for example, 10% discount for a purchase of more than 100).
+    Since there are no specific SKUs that trigger the campaign and no specific SKUs that receive the benefit of the
+    campaign, both the trigger and benefits arrays are empty.
+
+  - Campaigns not in the `READY` state. Campaigns that were abandoned during the creation process, or those for which
+    the creation process failed might have any combination of no benefits, no triggers, and/or no vendors.
+
+  - Bugs in the Promo tool backend. The Promo tool team has confirmed that they have had a few instances in which small
+    bugs allowed for a limited number of campaigns to be created with missing benefits, triggers, and/or vendors. These
+    bugs have been addressed, but the historical data in this table still reflects them.
+
+  #### Missing campaigns
+
+  Due to data loss issues in 2021 and 2022, there are ~1000 campaigns missing in this table. We know that these
+  campaigns existed because we have either information on their benefits, or their triggers, or their vendors, or their
+  banners. Because this is an insignificant proportion of campaigns (<0.006% of the total campaigns), and because the
+  root-cause of why they are missing cannot be determined, we will not be including them in this table.
+
+  Also, keep in mind that this table covers only Promo tool. For other sources of campaigns and promotions refer to the
+  appropriate tables.
+
+  #### Missing global entity IDs
+
+  Because the GEID was not introduced in all tables at the time of launching the service, some older rows are missing
+  this value now.
+
+  ### Key
+
+  PK: `country_code` + `campaign_id`
+
+  ### Sources
+
+  All data in this table comes from Promo tool. More information about Promo Tool is available in the team's
+  [product guide][2]. For schema relationship information visit the [Promo tool team's confluence page][1].
+
+  ### Life cycle
+
+  Stable.
+
+  ### Data freshness
+
+  This table is entirely re-created with each run of DMART's `curated-data` DAG (every 4 hours).
+
+  ### Owner
+
+  - Team: QCommerce analytics engineering
+  - Email: `qc-analytics-engineers@deliveryhero.com`
+  - Slack channel: [`#data-hub-qcommerce`][3]
+  - Slack handle: `@qc-data-analytics-engineers`
+
+  [1]: https://confluence.deliveryhero.com/pages/viewpage.action?pageId=419427535
+  [2]: https://q-commerce-knowledge-base.knowledgeowl.com/home/promotion-tool
+  [3]: https://deliveryhero.slack.com/archives/C01V1HS5S49
+columns_description:
+  - country_code: |
+      Two-letter code identifying the deployment country. For example, 'uy' stands for Uruguay.
+  - global_entity_id: |
+      ID of the entity. For example, 'PY_UY' stands for PedidosYa Uruguay.
+  - campaign_id: |
+      UUID of the campaign.
+  - campaign_name: |
+      Campaign name.
+  - campaign_type: |
+      Campaign type, e.g. `Strikethrough`, `SameItemBundle`, `MixAndMatch`, `BasketValue`, etc.
+  - campaign_subtype: |
+      A sub-categorization of campaigns based on the `campaign_type`, `applies_to`, and `discount_type` columns.
+  - target_audience: |
+      User segment for which the campaign is applicable. This can have values like `ALL`, `SUBSCRIBED_USER`,
+      `SEGMENT_USER`, etc.
+  - target_audience_id: |
+      ID of the target audience group/segment. Only applicable for `target_audience = 'SEGMENT_USER'`. For all the
+      other types of target audiences this value will be `NULL`.
+  - applies_to: |
+      The level at which the campaign will be applied. E.g.: product, basket, etc.
+  - discount_type: |
+      The type of discount.
+  - discount_value: |
+      The discount value.
+  - global_usage_limit: |
+      The number of times the campaign can be used across all users and carts.
+  - user_usage_limit: |
+      The maximum number times the campaign can be used per user.
+  - budget: |
+      The total budget amount for the campaign.
+  - total_trigger_threshold: |
+      The minimum basket total value to trigger the campaign.
+  - externally_funded_percentage: |
+      The percentage of amount borne by Supplier/CPG/Local Shop.
+  - created_at_utc: |
+      The date-time when the campaign data was created (in UTC).
+  - updated_at_utc: |
+      The date-time when the campaign data was last updated (in UTC).
+  - start_at_utc: |
+      The date-time when the campaign starts (in UTC).
+  - end_at_utc: |
+      The date-time when the campaign ends (in UTC).
+  - is_active: |
+      A boolean indicating if the campaign is active (`TRUE`) or inactive (`FALSE`).
+  - descriptions: |
+      The descriptions of the campaign. This presents information on the descriptions in every locale in which said
+      description was provided at the moment of creating/updating the campaign. Data is presented as a JSON object
+      where the key is the locale (e.g. `en_GB`, `en_AE`, and so on), and the value is the description provided in that
+      locale.
+  - display_names: |
+      The names used to display the campaign on the platform. This presents information on the display names in every
+      locale in which said information was provided at the moment of creating/updating the campaign. Data is presented
+      as a JSON object where the key is the locale (e.g. `en_GB`, `en_AE`, and so on), and the value is the display name
+      provided in that locale.
+  - benefit_qty_limit: |
+      Maximum number for a benefit that can be applied to the campaign.
+  - trigger_qty_threshold: |
+      The minimum quantity of products to trigger the campaign.
+  - cart_item_usage_limit: |
+      The number of times a campaign can be applied to a cart.
+  - reason: |
+      Reason for creating the campaign. For example, `Competitiveness`, `Expiring Soon`, `Delisting`, and so on.
+  - root_id: |
+      The identifier for the base version of the campaign.
+  - deactivated_at_utc: |
+      The date-time when the campaign was deactivated (in UTC).
+  - root_creation_at_utc: |
+      The date-time when the base version campaign was created (in UTC).
+  - fixed_bundle_price: |
+      Fixed discounted price for the combination of products.
+  - experiment_id: |
+      ID of the experiment. Will be `NULL` for campaigns that are not part of any experiments.
+  - variation_name: |
+      Name of the variation set in the experiment. Will be `NULL` for campaigns that are not part of any experiments.
+  - creation_source: |
+      The source (tool) through which the campaign was created. As of the last update of this documentation, possible
+      values are:
+
+      - `OPS_PORTAL`
+      - `SPREADSHEET_INGESTION`
+      - `VENDOR_PORTAL`
+      - `SFTP_INTEGRATION`
+      - `NULL`: no source information available.
+  - external_funder: |
+      The source of the external funding for the campaign. As of the last update of this documentation, possible values
+      are:
+
+      - `LOCAL_SHOP`
+      - `BRAND`
+      - `NULL`: 'no external funding' or, 'information not available'.
+  - state: |
+      The last known state of the campaign. As of the last update of this documentation, possible values are:
+
+      - `READY`
+      - `PENDING_CREATION`
+      - `PENDING_APPROVAL`
+      - `CREATION_FAILED`
+      - `DEACTIVATION_FAILED`
+      - `CREATION_IN_PROGRESS`
+      - `PENDING_DEACTIVATE`
+      - `NULL`
+  - is_valid: |
+      A boolean indicating whether the campaign is currently valid (`TRUE`), or not (`FALSE`).
+  - benefits: |
+      A collection of campaign benefits' information.
+  - benefits.sku: |
+      SKU of the product.
+
+      Please note that this field will hold information of the benefit product listed for the campaign. In case of
+      campaigns created on or applicable to bundle products, the SKU will indicate the bundle product's SKU and not the
+      children SKU. Therefore, it will not be joined for such campaigns directly with `qc_orders` data.
+  - benefits.discount_type: |
+      Type of discount. Possible values are:
+
+      - `PERCENTAGE`: this means that the `discount_value` is a percentage of the price of the product at the time of
+        order. For example, if `discount_type = 'PERCENTAGE'` and `discount_value = '10'` the user will receive a 10%
+        discount on the price of the product.
+      - `ABSOLUTE`: this means that the `discount_value` is a currency-units amount (e.g. Euros) of the price of the
+        product at the time of order. For example, if `discount_type = 'ABSOLUTE'` and `discount_value = '10'` the user
+        will receive a 10 currency-units amount discount on the price of the product.
+      - `FINAL_PRICE`: this means that the final price of the product will be `discount_value` when the campaign is
+        applied to an order.
+
+      `NULL` values in this column indicate that, for this campaign-SKU, the benefit has been set globally only, with
+      no overwrites at the SKU level. Refer to `discount_type` for the type of discount for this SKU.
+  - benefits.discount_value: |
+      Product discount amount, percentage, or final price.
+
+      `NULL` values in this column indicate that, for this campaign-SKU, the benefit has been set globally only, with
+      no overwrites at the SKU level. Refer to `discount_value` for the discount value for this SKU.
+  - benefits.max_qty: |
+      The maximum quantity of product on which the discount can be applied.
+  - benefits.remaining_qty: |
+      The remaining quantity of product on which the discount can be applied.
+  - benefits.supplier_funding_type: |
+      Type of supplier funding.
+  - benefits.supplier_funding_value: |
+      Value of supplier funding.
+  - benefits.created_at_utc: |
+      The date-time when the campaign benefit was created (in UTC).
+
+      There are ~4000 rows for which this value is originally `NULL`. For those cases, we are defaulting to
+      `updated_at_utc`.
+  - benefits.updated_at_utc: |
+      The date-time when the campaign benefit was last updated (in UTC).
+  - benefits.is_deleted: |
+      Boolean that takes the value `TRUE` if the product has been removed from the campaign in the Promo tool DB.
+  - benefits.src: |
+      The source of the campaign benefit. Possible values are:
+
+      - `Old benefits`: for rows that originate from the old benefits table (`djini_app_data_campaign_benefits`).
+      - `New benefits`: for rows that originate from the new benefits table (`djini_app_data_benefit_skus`).
+  - benefits.src_priority: |
+      The priority allocated to rows originated in the different sources of campaign benefits. Possible values are:
+
+      - `1`: for rows with `src = 'New benefits'`.
+      - `2`: for rows with `src = 'Old benefits'`.
+  - triggers: |
+      A collection of campaign triggers' information.
+  - triggers.sku: |
+      SKU of the trigger product.
+  - triggers.created_at_utc: |
+      The date-time when the campaign trigger was created (in UTC).
+  - triggers.updated_at_utc:
+      The date-time when the campaign trigger was last updated (in UTC).
+  - triggers.is_deleted: |
+      A boolean that takes the value `TRUE` if the product has been soft deleted in the Promo tool DB, or `FALSE`
+      otherwise.
+  - triggers.src: |
+      The source of the campaign trigger. Possible values are:
+
+      - `Old triggers`: for rows that originate from the old triggers table (`djini_app_data_campaign_triggers`).
+      - `New triggers`: for rows that originate from the new triggers table (`djini_app_data_benefit_skus`).
+  - triggers.src_priority: |
+      The priority allocated to rows originated in the different sources of campaign benefits. Possible values are:
+
+      - `1`: for rows with `src = 'New triggers'`.
+      - `2`: for rows with `src = 'Old triggers'`.
+  - vendors: |
+      A collection of campaign vendors' information.
+  - vendors.catalog_global_vendor_id: |
+      UUID of vendor. These IDs are fetched from the Catalog system. They are only global within the Catalog system.
+      They do not match the `platform_vendor_id` found in other tables.
+  - vendors.created_at_utc: |
+      Date and time (in UTC) at which the campaign-vendor relationship was created.
+  - vendors.updated_at_utc: |
+      Date and time (in UTC) at which the campaign-vendor relationship was last updated.
+dependencies:
+  - _dns_djini_campaigns_v2
+execution_timeout_minutes: 30
+labels:
+  monte-carlo-tag: qc-data-product-tier1
+create_shared_view: true
+columns:
+  - country_code
+  - global_entity_id
+  - campaign_id
+  - campaign_name
+  - campaign_type
+  - campaign_subtype
+  - target_audience
+  - target_audience_id
+  - applies_to
+  - discount_type
+  - discount_value
+  - global_usage_limit
+  - user_usage_limit
+  - budget
+  - total_trigger_threshold
+  - externally_funded_percentage
+  - created_at_utc
+  - updated_at_utc
+  - start_at_utc
+  - end_at_utc
+  - is_active
+  - display_names
+  - descriptions
+  - benefit_qty_limit
+  - trigger_qty_threshold
+  - cart_item_usage_limit
+  - reason
+  - root_id
+  - deactivated_at_utc
+  - root_creation_at_utc
+  - fixed_bundle_price
+  - experiment_id
+  - variation_name
+  - creation_source
+  - external_funder
+  - state
+  - is_valid
+  - benefits
+  - triggers
+  - vendors
+tests:
+  no_nulls: &no_nulls
+    test: no_nulls
+    frequency: daily
+    data_quality_dimension: completeness
+  column_tests:
+    - column: country_code
+      tests:
+        - <<: *no_nulls
+    - column: global_entity_id
+      tests:
+        - <<: *no_nulls
+    - column: campaign_id
+      tests:
+        - <<: *no_nulls
+  table_tests:
+    - test: no_duplicates
+      frequency: daily
+      data-quality-dimension: uniqueness
+      params:
+        columns:
+          - country_code
+          - campaign_id

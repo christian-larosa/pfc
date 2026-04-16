@@ -69,7 +69,7 @@ orders AS (
     , supplier_id
     , supplier_name
   FROM `dh-darkstores-live.csm_automated_tables.sps_product`
-  WHERE global_entity_id = global_entity_id
+  WHERE global_entity_id = param_global_entity_id
 )
 
 -- JOIN strategy: date_warehouse_sku

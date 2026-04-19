@@ -49,8 +49,10 @@ orders AS (
     , i.value_lc.unit_discount_lc                             AS unit_discount_lc
     , i.value_lc.unit_discount_lc > 0                         AS has_discount
     , i.value_lc.djini_order_items_supplier_funded_lc         AS funding_v1_lc
+    , ci.campaign_id                                           AS campaign_id
   FROM `fulfillment-dwh-production.cl_dmart.qc_orders` AS qo
   LEFT JOIN UNNEST(qo.items) AS i
+  LEFT JOIN UNNEST(i.campaign_info) AS ci
   WHERE qo.global_entity_id                    = param_global_entity_id
     AND qo.country_code                        = param_country_code
     AND qo.is_dmart                            = TRUE
@@ -86,7 +88,8 @@ orders AS (
     , o.unit_discount_lc
     , o.has_discount
     , o.funding_v1_lc
-    , t3.campaign_id
+    , o.campaign_id
+    , t3.campaign_id                AS funding_campaign_id
     , t3.campaign_type
     , t3.contract_status
     , t3.supplier_funding_type
@@ -119,6 +122,7 @@ orders AS (
     , has_discount
     , funding_v1_lc
     , campaign_id
+    , funding_campaign_id
     , campaign_type
     , contract_status
     , supplier_funding_type
@@ -145,6 +149,9 @@ SELECT
   , s.supplier_name
   , d.sku
   , d.campaign_id
+  , d.funding_campaign_id
+  , qc_audit.root_id                           AS root_id
+  , qc_funding.root_id                         AS funding_root_id
   , d.campaign_type
   , d.quantity_sold
   , d.unit_price_listed_lc
@@ -223,3 +230,9 @@ LEFT JOIN supplier_info AS s
   ON  d.global_entity_id = s.global_entity_id
   AND d.warehouse_id     = s.warehouse_id
   AND d.sku              = s.sku
+LEFT JOIN `fulfillment-dwh-production.cl_dmart.qc_campaigns` AS qc_audit
+  ON d.global_entity_id = qc_audit.global_entity_id
+  AND d.campaign_id     = qc_audit.campaign_id
+LEFT JOIN `fulfillment-dwh-production.cl_dmart.qc_campaigns` AS qc_funding
+  ON d.global_entity_id    = qc_funding.global_entity_id
+  AND d.funding_campaign_id = qc_funding.campaign_id

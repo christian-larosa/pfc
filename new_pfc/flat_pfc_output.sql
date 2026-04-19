@@ -19,7 +19,7 @@
 DECLARE param_global_entity_id  STRING  DEFAULT 'PY_PE';
 DECLARE param_country_code      STRING  DEFAULT 'pe';
 DECLARE date_in                 DATE    DEFAULT DATE('2026-03-01');
-DECLARE date_fin                DATE    DEFAULT CURRENT_DATE();
+DECLARE date_fin                DATE    DEFAULT DATE('2026-03-31');
 DECLARE param_billing_period    STRING  DEFAULT 'campaign_end_date';
 DECLARE param_show_brand        BOOL    DEFAULT FALSE;
 DECLARE param_show_warehouse    BOOL    DEFAULT TRUE;
@@ -42,7 +42,10 @@ WITH pre_agg AS (
       ) AS billing_month
   FROM `dh-darkstores-live.csm_automated_tables.pfc_order_funding`
   WHERE global_entity_id = param_global_entity_id
-    AND order_date BETWEEN date_in AND date_fin
+    AND CASE param_billing_period
+          WHEN 'order_date'        THEN order_date
+          WHEN 'campaign_end_date' THEN campaign_end_date
+        END BETWEEN date_in AND date_fin
     AND funding_total_lc > 0  -- solo filas con funding real → credit note no incluye ceros
 )
 

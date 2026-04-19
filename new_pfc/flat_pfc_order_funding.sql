@@ -64,39 +64,14 @@ orders AS (
 )
 
 , supplier_info AS (
-  SELECT
-    sp.global_entity_id
-    , sp.sku
-    , sp.warehouse_id
-    , sp.supplier_id
-    , ss.name AS supplier_name
-  FROM (
-    SELECT
-      ps.global_entity_id
-      , ps.sku
-      , s.supplier_id
-      , w.warehouse_id
-      , w.is_preferred_supplier
-    FROM `fulfillment-dwh-production.cl_dmart.products_suppliers` AS ps
-    CROSS JOIN UNNEST(ps.suppliers) AS s
-    CROSS JOIN UNNEST(s.warehouses) AS w
-    WHERE ps.global_entity_id = param_global_entity_id
-      AND s.is_supplier_deleted = FALSE
-      AND w.warehouse_id IS NOT NULL
-      AND s.supplier_id IS NOT NULL
-    QUALIFY ROW_NUMBER() OVER (
-      PARTITION BY
-        ps.global_entity_id
-        , ps.sku
-        , w.warehouse_id
-      ORDER BY
-        w.is_preferred_supplier DESC
-        , s.supplier_updated_at DESC NULLS LAST
-    ) = 1
-  ) AS sp
-  LEFT JOIN `fulfillment-dwh-production.curated_data_shared_salesforce_srm.account` AS ss
-    ON CAST(sp.supplier_id AS STRING) = ss.srm_supplierportalid__c
-    AND sp.global_entity_id           = ss.global_entity_id
+  SELECT DISTINCT
+    spfc.global_entity_id
+    , spfc.sku
+    , spfc.warehouse_id
+    , CAST(spfc.supplier_id AS STRING)  AS supplier_id
+    , spfc.supplier_name
+  FROM `fulfillment-dwh-production.cl_dmart._spfc_products` AS spfc
+  WHERE spfc.global_entity_id = param_global_entity_id
 )
 
 -- JOIN strategy: date_warehouse_sku

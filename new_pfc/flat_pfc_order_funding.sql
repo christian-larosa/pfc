@@ -137,6 +137,26 @@ orders AS (
     , discount_type_resolved
     , discount_value_resolved
     , campaign_end_date
+    , CASE
+        WHEN require_discount_to_charge = TRUE
+         AND has_discount = FALSE               THEN 0.0
+        WHEN contract_status = 'missing'
+         AND missing_contract_fallback = 'skip' THEN 0.0
+        WHEN contract_status = 'missing'
+         AND missing_contract_fallback = 'full_discount'
+          THEN ROUND(unit_discount_lc * quantity_sold, 2)
+        WHEN contract_status = 'explicit_zero'  THEN 0.0
+        WHEN funding_unit_value IS NULL         THEN 0.0
+        WHEN funding_value_convention = 'normalized'
+          THEN ROUND(funding_unit_value * quantity_sold, 2)
+        WHEN funding_value_convention = 'per_benefit'
+          THEN ROUND(
+                 funding_unit_value
+                 * FLOOR(quantity_sold / NULLIF(trigger_qty_threshold, 0))
+                 * benefit_qty_limit
+               , 2)
+        ELSE 0.0
+      END AS funding_total_lc
   FROM orders_with_funding
   QUALIFY ROW_NUMBER() OVER (
     PARTITION BY order_id, sku
@@ -171,36 +191,12 @@ SELECT
   , d.discount_value_resolved
   , d.campaign_end_date
 
-  -- funding_total_lc — gobernado por params
-  , CASE
-      -- require_discount_to_charge
-      WHEN require_discount_to_charge = TRUE
-       AND d.has_discount = FALSE               THEN 0.0
-      -- missing_contract_fallback
-      WHEN d.contract_status = 'missing'
-       AND missing_contract_fallback = 'skip'   THEN 0.0
-      WHEN d.contract_status = 'missing'
-       AND missing_contract_fallback = 'full_discount'
-        THEN ROUND(d.unit_discount_lc * d.quantity_sold, 2)
-      -- explicit_zero — siempre 0, no hay fallback
-      WHEN d.contract_status = 'explicit_zero'  THEN 0.0
-      -- sin campaña en T3
-      WHEN d.funding_unit_value IS NULL         THEN 0.0
-      -- funding_value_convention
-      WHEN funding_value_convention = 'normalized'
-        THEN ROUND(d.funding_unit_value * d.quantity_sold, 2)
-      WHEN funding_value_convention = 'per_benefit'
-        THEN ROUND(
-               d.funding_unit_value
-               * FLOOR(d.quantity_sold / NULLIF(d.trigger_qty_threshold, 0))
-               * d.benefit_qty_limit
-             , 2)
-      ELSE 0.0
-    END AS funding_total_lc
+  -- funding_total_lc — calculado en orders_dedup
+  , d.funding_total_lc
 
   -- pfc_funding_amount_lc — switch gobernado por funding_source
   , CASE funding_source
-      WHEN 'negotiated' THEN funding_total_lc
+      WHEN 'negotiated' THEN d.funding_total_lc
       WHEN 'promotool'  THEN COALESCE(d.funding_v1_lc, 0.0)
     END AS pfc_funding_amount_lc
 
@@ -209,7 +205,7 @@ SELECT
 
   -- delta_lc: pfc_funding_amount_lc - funding_v1_lc
   , CASE funding_source
-      WHEN 'negotiated' THEN funding_total_lc - COALESCE(d.funding_v1_lc, 0.0)
+      WHEN 'negotiated' THEN d.funding_total_lc - COALESCE(d.funding_v1_lc, 0.0)
       WHEN 'promotool'  THEN 0.0
     END AS delta_lc
 

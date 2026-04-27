@@ -162,8 +162,10 @@ orders AS (
         WHEN funding_value_convention = 'per_benefit'
           THEN ROUND(
                  funding_unit_value
-                 * FLOOR(quantity_sold / NULLIF(trigger_qty_threshold, 0))
-                 * COALESCE(NULLIF(benefit_qty_limit, 0), 1)
+                 * LEAST(
+                   FLOOR(quantity_sold / NULLIF(trigger_qty_threshold, 0)),
+                   COALESCE(NULLIF(benefit_qty_limit, 0), FLOOR(quantity_sold / NULLIF(trigger_qty_threshold, 0)))
+                 )
                , 2)
         ELSE 0.0
       END AS funding_total_lc
@@ -187,9 +189,12 @@ SELECT
   , qc_audit.root_id                           AS root_id
   , qc_funding.root_id                         AS funding_root_id
   , d.campaign_type
+  , qc_audit.campaign_subtype                  AS campaign_subtype
+  , qc_funding.campaign_subtype                AS funding_campaign_subtype
   , d.quantity_sold
   , d.unit_price_listed_lc
   , d.unit_discount_lc
+  , ROUND((d.unit_price_listed_lc - d.unit_discount_lc) * d.quantity_sold, 2) AS net_sales_lc
   , d.has_discount
   , d.contract_status
   , d.supplier_funding_type

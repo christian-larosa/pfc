@@ -3,39 +3,38 @@
 -- Dataset destino: dh-darkstores-live.csm_automated_tables
 -- Autor: Christian La Rosa
 -- ============================================================
--- PARAMS PY_PE
---   global_entity_id          : PY_PE
---   country_code              : pe
---   date_in                   : 2026-03-01
---   date_fin                  : 2026-03-31
---   join_strategy             : date_warehouse_sku
---   require_discount_to_charge: true
---   missing_contract_fallback : skip
---   funding_value_convention  : normalized
---
--- TODO: date_in / date_fin hardcodeados para validación marzo 2026.
---       En pipeline productivo derivar del scheduler.
+-- PARAMS (read from pfc_config)
+--   param_global_entity_id : Entity code (e.g., PY_PE, TB_BH, TB_AE)
+-- Parámetros universales:
+--   param_date_in : 2025-01-01
+--   date_fin      : CURRENT_DATE()
 -- ============================================================
 
 -- ── Params de entidad ─────────────────────────────────────────
 DECLARE param_global_entity_id       STRING  DEFAULT 'PY_PE';
-DECLARE param_country_code           STRING  DEFAULT 'pe';
 DECLARE param_date_in                DATE    DEFAULT DATE('2025-01-01');
 DECLARE date_fin                     DATE    DEFAULT CURRENT_DATE();
-
--- ── Params de comportamiento ──────────────────────────────────
-DECLARE join_strategy                STRING  DEFAULT 'date_warehouse_sku';
-DECLARE require_discount_to_charge   BOOL    DEFAULT TRUE;
-DECLARE missing_contract_fallback    STRING  DEFAULT 'skip';
-DECLARE funding_value_convention     STRING  DEFAULT 'normalized';
-DECLARE funding_source               STRING  DEFAULT 'negotiated';
--- funding_source opciones: 'negotiated' | 'promotool'
 
 CREATE OR REPLACE TABLE `dh-darkstores-live.csm_automated_tables.pfc_order_funding`
 CLUSTER BY global_entity_id, order_date, supplier_id
 AS
 
-WITH
+-- Lee configuración desde pfc_config
+WITH config AS (
+  SELECT
+    global_entity_id
+    , country_code
+    , join_strategy
+    , require_discount_to_charge
+    , missing_contract_fallback
+    , funding_value_convention
+    , funding_source
+  FROM `dh-darkstores-live.csm_automated_tables.pfc_config`
+  WHERE global_entity_id = param_global_entity_id
+    AND is_active = TRUE
+)
+
+,
 
 orders AS (
   SELECT
@@ -53,8 +52,10 @@ orders AS (
   FROM `fulfillment-dwh-production.cl_dmart.qc_orders` AS qo
   LEFT JOIN UNNEST(qo.items) AS i
   LEFT JOIN UNNEST(i.campaign_info) AS ci
+  INNER JOIN config cfg
+    ON qo.global_entity_id = cfg.global_entity_id
   WHERE qo.global_entity_id                    = param_global_entity_id
-    AND qo.country_code                        = param_country_code
+    AND qo.country_code                        = cfg.country_code
     AND qo.is_dmart                            = TRUE
     AND qo.is_successful                       = TRUE
     AND qo.is_failed                           = FALSE
@@ -108,7 +109,7 @@ orders AS (
     AND o.warehouse_id      = t3.warehouse_id
     AND o.sku               = t3.sku
     AND (
-      join_strategy != 'campaign_id'
+      (SELECT join_strategy FROM config LIMIT 1) != 'campaign_id'
       OR o.campaign_id = t3.campaign_id
     )
 )
@@ -140,18 +141,18 @@ orders AS (
     , campaign_end_date
     , warehouse_name
     , CASE
-        WHEN require_discount_to_charge = TRUE
+        WHEN (SELECT require_discount_to_charge FROM config LIMIT 1) = TRUE
          AND has_discount = FALSE               THEN 0.0
         WHEN contract_status = 'missing'
-         AND missing_contract_fallback = 'skip' THEN 0.0
+         AND (SELECT missing_contract_fallback FROM config LIMIT 1) = 'skip' THEN 0.0
         WHEN contract_status = 'missing'
-         AND missing_contract_fallback = 'full_discount'
+         AND (SELECT missing_contract_fallback FROM config LIMIT 1) = 'full_discount'
           THEN ROUND(unit_discount_lc * quantity_sold, 2)
         WHEN contract_status = 'explicit_zero'  THEN 0.0
         WHEN funding_unit_value IS NULL         THEN 0.0
-        WHEN funding_value_convention = 'normalized'
+        WHEN (SELECT funding_value_convention FROM config LIMIT 1) = 'normalized'
           THEN ROUND(funding_unit_value * quantity_sold, 2)
-        WHEN funding_value_convention = 'per_benefit'
+        WHEN (SELECT funding_value_convention FROM config LIMIT 1) = 'per_benefit'
           THEN ROUND(
                  funding_unit_value
                  * FLOOR(quantity_sold / NULLIF(trigger_qty_threshold, 0))
@@ -198,7 +199,7 @@ SELECT
   , d.funding_total_lc
 
   -- pfc_funding_amount_lc — switch gobernado por funding_source
-  , CASE funding_source
+  , CASE (SELECT funding_source FROM config LIMIT 1)
       WHEN 'negotiated' THEN d.funding_total_lc
       WHEN 'promotool'  THEN COALESCE(d.funding_v1_lc, 0.0)
     END AS pfc_funding_amount_lc
@@ -207,15 +208,15 @@ SELECT
   , COALESCE(d.funding_v1_lc, 0.0)             AS funding_v1_lc
 
   -- delta_lc: pfc_funding_amount_lc - funding_v1_lc
-  , CASE funding_source
+  , CASE (SELECT funding_source FROM config LIMIT 1)
       WHEN 'negotiated' THEN d.funding_total_lc - COALESCE(d.funding_v1_lc, 0.0)
       WHEN 'promotool'  THEN 0.0
     END AS delta_lc
 
   -- Flags audit
   , d.contract_status = 'missing'              AS fallback_applied
-  , join_strategy                              AS join_method_used
-  , funding_value_convention                   AS funding_value_convention_used
+  , (SELECT join_strategy FROM config LIMIT 1)                              AS join_method_used
+  , (SELECT funding_value_convention FROM config LIMIT 1)                   AS funding_value_convention_used
   , CURRENT_TIMESTAMP()                        AS ingested_at
 
 FROM orders_dedup AS d

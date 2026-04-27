@@ -3,39 +3,39 @@
 -- Dataset destino: dh-darkstores-live.csm_automated_tables
 -- Autor: Christian La Rosa
 -- ============================================================
--- PARAMS PY_PE
---   param_global_entity_id : PY_PE
---   param_country_code     : pe
---   date_in                : 2026-03-01
+-- PARAMS (read from pfc_config)
+--   param_global_entity_id : Entity code (e.g., PY_PE, TB_BH, TB_AE)
+-- Parámetros universales:
+--   date_in                : 2025-01-01
 --   date_fin               : CURRENT_DATE()
---   billing_period         : order_date
---   show_brand             : false
---   show_warehouse         : true
---
--- TODO: date_in hardcodeado para validación marzo 2026.
---       En pipeline productivo derivar del scheduler.
 -- ============================================================
 
 DECLARE param_global_entity_id  STRING  DEFAULT 'PY_PE';
-DECLARE param_country_code      STRING  DEFAULT 'pe';
-DECLARE date_in                 DATE    DEFAULT DATE('2026-01-01');
+DECLARE date_in                 DATE    DEFAULT DATE('2025-01-01');
 DECLARE date_fin                DATE    DEFAULT CURRENT_DATE();
-DECLARE param_billing_period    STRING  DEFAULT 'order_date';
-DECLARE param_show_brand        BOOL    DEFAULT FALSE;
-DECLARE param_show_warehouse    BOOL    DEFAULT TRUE;
 
 CREATE OR REPLACE TABLE `dh-darkstores-live.csm_automated_tables.pfc_output`
 CLUSTER BY global_entity_id, billing_month, supplier_id
 AS
 
-WITH pre_agg AS (
+-- Lee configuración desde pfc_config
+WITH config AS (
+  SELECT
+    global_entity_id
+    , billing_period
+  FROM `dh-darkstores-live.csm_automated_tables.pfc_config`
+  WHERE global_entity_id = param_global_entity_id
+    AND is_active = TRUE
+)
+
+, pre_agg AS (
   SELECT
     *
     , warehouse_id AS warehouse_id_output
     , warehouse_name AS warehouse_name_output
     , brand_name AS brand_name_output
     , DATE_TRUNC(
-        CASE param_billing_period
+        CASE (SELECT billing_period FROM config LIMIT 1)
           WHEN 'order_date'        THEN order_date
           WHEN 'campaign_end_date' THEN campaign_end_date
         END
@@ -43,7 +43,7 @@ WITH pre_agg AS (
       ) AS billing_month
   FROM `dh-darkstores-live.csm_automated_tables.pfc_order_funding`
   WHERE global_entity_id = param_global_entity_id
-    AND CASE param_billing_period
+    AND CASE (SELECT billing_period FROM config LIMIT 1)
           WHEN 'order_date'        THEN order_date
           WHEN 'campaign_end_date' THEN campaign_end_date
         END BETWEEN date_in AND date_fin

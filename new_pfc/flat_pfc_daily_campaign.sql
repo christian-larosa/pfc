@@ -3,25 +3,27 @@
 -- Dataset destino: dh-darkstores-live.csm_automated_tables
 -- Autor: Christian La Rosa
 -- ============================================================
--- PARAMS PY_PE
---   param_global_entity_id   : PY_PE
---   param_country_code       : pe
---   funding_source           : marko
---   funding_value_convention : normalized
---   missing_contract_fallback: skip
---
--- TODO: date_in / date_fin hardcodeados para validación marzo 2026.
---       En pipeline productivo derivar del scheduler.
+-- PARAMS (read from pfc_config)
+--   param_global_entity_id : Entity code (e.g., PY_PE, TB_BH, TB_AE)
 -- ============================================================
 
 DECLARE param_global_entity_id  STRING  DEFAULT 'PY_PE';
-DECLARE param_country_code      STRING  DEFAULT 'pe';
 
 CREATE OR REPLACE TABLE `dh-darkstores-live.csm_automated_tables.pfc_daily_funding`
 CLUSTER BY global_entity_id, order_date, sku
 AS
 
-WITH vendor_warehouse AS (
+-- Lee configuración desde pfc_config
+WITH config AS (
+  SELECT
+    global_entity_id
+    , country_code
+  FROM `dh-darkstores-live.csm_automated_tables.pfc_config`
+  WHERE global_entity_id = param_global_entity_id
+    AND is_active = TRUE
+)
+
+, vendor_warehouse AS (
   SELECT DISTINCT
     qcp.global_entity_id
     , vp.catalog_global_vendor_id
@@ -75,7 +77,9 @@ WITH vendor_warehouse AS (
     DATE(qc.start_at_utc)
     , DATE(qc.end_at_utc)
   )) AS order_date
-  WHERE qc.country_code = param_country_code
+  INNER JOIN config cfg
+    ON qc.global_entity_id = cfg.global_entity_id
+  WHERE qc.country_code = cfg.country_code
 )
 
 SELECT

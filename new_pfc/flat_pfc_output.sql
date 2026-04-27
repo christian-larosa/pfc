@@ -20,7 +20,7 @@ AS
 WITH config AS (
   SELECT
     global_entity_id
-    , billing_period
+    , param_billing_period AS billing_period
   FROM `dh-darkstores-live.csm_automated_tables.pfc_config`
   WHERE is_active = TRUE
 )
@@ -30,7 +30,6 @@ WITH config AS (
     pof.*
     , pof.warehouse_id AS warehouse_id_output
     , pof.warehouse_name AS warehouse_name_output
-    , pof.brand_name AS brand_name_output
     , DATE_TRUNC(
         CASE cfg.billing_period
           WHEN 'order_date'        THEN pof.order_date
@@ -53,7 +52,6 @@ SELECT
   , billing_month
   , supplier_id
   , supplier_name
-  , brand_name_output                     AS brand_name
   , warehouse_id_output                   AS warehouse_id
   , warehouse_name_output                 AS warehouse_name
   , COUNT(DISTINCT order_id)              AS total_orders
@@ -72,6 +70,5 @@ GROUP BY
   , billing_month
   , supplier_id
   , supplier_name
-  , brand_name_output
   , warehouse_id_output
   , warehouse_name_output

@@ -163,7 +163,7 @@ orders AS (
           THEN ROUND(
                  funding_unit_value
                  * FLOOR(quantity_sold / NULLIF(trigger_qty_threshold, 0))
-                 * benefit_qty_limit
+                 * COALESCE(NULLIF(benefit_qty_limit, 0), 1)
                , 2)
         ELSE 0.0
       END AS funding_total_lc

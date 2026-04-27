@@ -1,0 +1,557 @@
+name: qc_catalog_products
+table_description: |
+  This table contains information about the products in the Quick Commerce Catalog system. Catalog is a tool which
+  helps category management teams to execute store specific pricing strategy, create and maintain the assortment, and
+  organise it into Categories. For more details on Catalog, please refer to [this link][1].
+
+  The vendor-products array holds information regarding the products for each vendor migrated to Catalog.
+
+  #### Master product information update frequency
+
+  The fields related to master products are only updated once a day, unless they were created in the past 180 days. This
+  is because reading Master Product data involves a lot of compute resources and in order to minimize this, an
+  incremental update every 4 hours for the past 180 days with a daily refresh for the entire data. Additional notes are
+  mentioned for the relevant fields.
+
+  #### Location Based Inventory migration from LBI to LBIv2
+
+  The fields related to Location Based Inventory in this table are currently being migrated to LBIv2 for which there
+  will be a new data product. Once the migration is complete, these fields will be deprecated and the new data product
+  is to be referenced for these fields. Currently the fields are only populated for the cases which are not migrated.
+  For more details, please refer to [this link][2].
+
+  ### Key
+
+  PK: `global_entity_id` + `catalog_chain_product_id`
+
+  ### Sources
+
+  The majority of information in this table is sourced from Catalog. Some fields are sourced from Inventory
+  Management (such as `warehouse_id`), and Location Based Inventory (such as `shelf`, `rack`, etc.) systems.
+
+  ### Life cycle
+
+  Stable.
+
+  ### Data freshness
+
+  This table is entirely recreated with every run of DMART's `curated-data` DAG (every 4 hours).
+
+  ### Owner
+
+  - Team: QCommerce analytics engineering
+  - Email: `qc-analytics-engineers@deliveryhero.com`
+  - Slack channel: [`#data-hub-qcommerce`](https://deliveryhero.slack.com/archives/C01V1HS5S49)
+  - Slack handle: `@qc-data-analytics-engineers`
+
+  [1]: https://q-commerce-knowledge-base.knowledgeowl.com/home/catalog
+  [2]: https://docs.google.com/document/d/1sTK0TmeKOAMSposWgf50f_fEGIF7bU4lqUxyyH7tnpo/edit
+columns_description:
+  - global_entity_id: |
+      Global entity ID. For example, `PY_UY` stands for PedidosYa Uruguay.
+  - catalog_region: |
+      The region identification of the place of the Catalog instance deployment. This is required for joining with
+      `pim_product` table for quality checks and hence not part of the shared layer.
+
+      Be advise: due to the deployment strategy used by the Catalog team, these values do not match the actual
+      `regions` values.
+  - country_code: |
+      ISO country code 2 letters.
+  - catalog_master_product_id: |
+      Master product ID from Catalog. These IDs are internal to the Catalog system and generated when Catalog
+      synchronizes with PIM. For the ID of the product in the PIM system, see the `pim_product_id` column.
+  - pim_product_id: |
+      The ID of the product in the PIM (Product Information) system.
+  - product_name: |
+      Name of the product in English if available. If not, then product name in local language.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - product_name_english: |
+      Name of the product in English.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - pim_product_name_english: |
+      Name of the product in English as it is registered in PIM (Product Information Management).
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - product_name_local: |
+      Name of the product in local language.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - pim_product_name_local: |
+      Name of the product in English as it is registered in PIM (Product Information Management).
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - local_language_locale: |
+      Platform's language, this language represents the language used in all the local language columns.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - product_description: |
+      Description of the product in English if available. If not, the description in local language.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - product_description_english: |
+      Description of the product in English.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - product_description_local: |
+      Description of the product in local language.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - product_image_url: |
+      The URL for the product's image. This corresponds to the `imageServiceUrl` reported by the Catalog team extracted
+      from the `images` field.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - pim_image_url: |
+      The URL for the product's image as it is registered in PIM (Product Information Management).
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - is_chain_product_override: |
+      Product name, description and image url is defined at master product level in PIM. Catalog has a feature that
+      allows for override of product name, description and image URL at `chain_product` level. This flag indicates TRUE
+      if the override was applied, else it's FALSE.
+  - is_sold_by_weight: |
+      [TO BE DEPRECATED] Please use the `is_weightable` field to identify if a product is `weightable` or not and
+      `is_sold_by_weight` inside `weightable_attributes` RECORD for products that are sold by weight.
+
+      A boolean identifying whether the product is `weightable` or not. This field might be deprecated soon since the
+      new definition of a `weightable` product is whether either `is_sold_by_weight` OR `is_sold_by_piece`. Since the
+      field might be deprecated soon, no cleanup operations are done on this field and `is_sold_by_weight` is used for
+      another field.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - is_bundle: |
+      A flag used to identify bundle products. `TRUE` if the product is a bundle, `FALSE` otherwise.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - weight_value: |
+      The weight of a product. Weights can be measured in different units. See the `weight_unit` columns for
+      information on the unit of measurement. If no `weight_value` is provided by the user when creating the product,
+      the value 0 is used by default.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - weight_unit: |
+      The unit of measurement in which the weight is been measured. As of writing, possible values attributes:
+
+      - `mg` for milligrams
+      - `g` for grams
+      - `kg` for kilograms
+      - `lb` for pounds
+      - `oz` for ounces
+      - `NULL` for no information available
+
+      Keep in mind that other values might have been introduced since the last update of this documentation.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - length_in_cm: |
+      The length of the product (in cm). If no `length_in_cm` is provided by the user when creating the product, the
+      value 0 is used by default.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - width_in_cm: |
+      The width of the product (in cm). If no `width_in_cm` is provided by the user when creating the product, the
+      value 0 is used by default.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - height_in_cm: |
+      The height of the product (in cm). If no `height_in_cm` is provided by the user when creating the product, the
+      value 0 is used by default.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - shelf_life_in_days: |
+      The number of days of shelf-life the product has. If no `shelf_life_in_days` is provided by the user when
+      creating the product, the value 0 is used by default.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - freshness_guarantee_in_days: |
+      Minimum remaining shelf-life committed to customers when they receive the products. This field is important for
+      communicating to customers in the apps. The minimum guarantee for customers when they buy products from our
+      DMarts.
+
+      This field is not validated during the Receivings process.
+  - min_receivings_shelf_life_days: |
+      Minimum shelf-life required upon receiving the stocks from DC/Suppliers. Indicates the minimum number of days
+      acceptable to receive goods from suppliers or DCs.
+  - product_type: |
+      The type of the product. eg: For packages used for delivery, type = 'delivery_material'
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - product_segment_id: |
+      Used exclusively by the Turkey team for SKU labeling and categorizing products as regular, launch, delisted, etc.
+      This field plays a critical role in the supply chain management specific to their operations.
+  - master_categories: |
+      An array which holds the master category details for each master product and country combination.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+
+      Please refer to the following for more details regarding PIM categories:
+      https://q-commerce-knowledge-base.knowledgeowl.com/home/master-category
+  - master_categories.master_category_names: |
+      A struct which holds the names of the master categories from level 1 to level 10.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - master_categories.master_category_ids: |
+      A struct which holds the IDs of the master categories from level 1 to level 10.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - barcodes: |
+      An array which holds the barcode details associated with the product. This is stored as an array because there
+      could be multiple barcodes for one product.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - barcodes.barcode: |
+      The actual barcode.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - brand_name: |
+      Name of the brand of the product.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - master_product_created_at_utc: |
+      A timestamp indicating when the master product was created (in UTC).
+  - catalog_chain_product_id: |
+      ID of the chain-product combination in the Catalog system. This along with the global_entity_id is the key for
+      this table.
+  - catalog_chain_id: |
+      ID of the chain in the Catalog system. These IDs do not match the `chain_id` from data streams or
+      `coredata_business.vendors`. This is required since certain systems such as Citrus use this instead of the ID
+      coming from platform.
+  - catalog_chain_name: |
+      Name of the chain as per the Catalog system.
+  - is_chain_from_dmart: |
+      A boolean which indicates whether the chain is part of a DMART/Darkstore.
+
+      Source: https://confluence.deliveryhero.com/pages/viewpage.action?spaceKey=GBU&title=Darkstores+information
+  - sku: |
+      SKU or 'Stock Keeping Unit' of the product.
+  - chain_product_created_at_utc: |
+      A timestamp indicating when the product was created in that chain in the Catalog system (in UTC).
+  - is_weightable: |
+      A boolean identifying whether the product is `weightable` or not. This will be TRUE if either `is_sold_by_weight`,
+      `is_sold_by_piece`, or both columns are TRUE in the `weightable_attributes` collection.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - weightable_attributes: |
+      A collection of attributes related to weightable products. These will only be populated for products for which
+      `is_weightable` = TRUE
+  - weightable_attributes.is_sold_by_weight: |
+      A boolean identifying whether the product is sold by weight (`TRUE`), or not (`FALSE`).
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - weightable_attributes.is_sold_by_piece: |
+      A boolean identifying whether the weightable product is sold by piece (`TRUE`), or not (`FALSE`).
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - weightable_attributes.weightable_unit: |
+      The unit of measurement used in product_stream by Catalog unless specified in other fields. Hardcoded to 'KG' as
+      in Catalog as of 2024-11-06.
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - weightable_attributes.base_weight: |
+      The weight value of the product, corresponding to the price specified in Catalog. Used to calculate price per
+      kg (original_price) in product_stream.
+  - weightable_attributes.base_weight_unit: |
+      The unit of base weight of the product.
+  - weightable_attributes.minimum_starting_weight: |
+      Specifies the increment in weight for the product to be purchased by the customer, as well as the starting value.
+      Only applicable for weightable products which can be sold by weight(`is_sold_by_weight` = 'TRUE').
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - weightable_attributes.minimum_starting_weight_unit: |
+      Specifies the unit of `minimum_starting_weight`. Only applicable for weightable products which can be sold by
+      weight(`is_sold_by_weight` = 'TRUE').
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - weightable_attributes.average_weight_per_piece: |
+      Specifies the average weight of an individual unit or piece of the product. This is applicable only for
+      weightable products which can be sold by piece(`is_sold_by_piece` = 'TRUE').
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - weightable_attributes.average_weight_per_piece_unit: |
+      Specifies the unit of `minimum_starting_weight`. This is applicable only for weightable products which can be
+      sold by piece(`is_sold_by_piece` = 'TRUE').
+
+      Note: Master Product attribute, updated once a day unless created within last 180 days.
+  - is_evd_product: |
+      A boolean indicating whether the product is from the "Everyday Roastery" brand. This is identified using a
+      combination of the product's brand name and it's assigned categories in Catalog. "Everyday Roastery" is DH's own
+      coffee brand.
+  - vendor_products: |
+      A nested array which holds information about products for each vendor in Catalog.
+  - vendor_products.catalog_vendor_product_id: |
+      ID of the vendor-product combination in the Catalog system.
+      This is also used as a "global" unique identifier of products for Glovo.
+  - vendor_products.catalog_vendor_id: |
+      ID of the vendor in the Catalog system. These IDs do not match the `platform_vendor_id`.
+  - vendor_products.platform_product_id: |
+      ID for unique identification of a product on the respective platforms. This is the same as `product_id` in
+      `coredata_business.products` and `data_streams.product_stream`. This value is used across platforms(or entities).
+  - vendor_products.product_remote_id: |
+      ID for unique identification of a product on the respective platforms. This is mostly used by Peya/latam.
+  - vendor_products.product_variation_id: |
+      ID for unique identification of a product on the respective platforms. This is mostly used by Pandora.
+      After Pandora catalog de-coupling in Q3'2024,
+      This field is a combination of product_variation_id and remote_id for pandora entities.
+  - vendor_products.global_catalog_id: |
+      Unique identifier of a product. This value is also equivalent to global_catalog_id in
+      `curated_data_shared_data_stream.product_stream`.
+  - vendor_products.vendor_product_created_at_utc: |
+      A timestamp indicating when the product was created for this vendor in the Catalog system (in UTC).
+  - vendor_products.vendor_product_updated_at_utc: |
+      A timestamp indicating when the product was last updated for this vendor in the Catalog system (in UTC).
+  - vendor_products.vendor_product_is_active: |
+      A boolean indicating whether the vendor-product is active.
+  - vendor_products.vendor_product_is_available: |
+      A Boolean indicating whether the vendor-product is available.
+      This flag is only available to local shop products. For DMART products, this field is NULL.
+  - vendor_products.vendor_product_is_deleted: |
+      A boolean indicating whether the vendor-product is deleted.
+  - vendor_products.status: |
+      A string indicating the status of a vendor product. Can be one of:
+
+      - `READY_FOR_PO`
+      - `DISCONTINUED`
+      - `ACTIVE`
+      - `RETIRED`
+      - `ON_HOLD`
+      - `BLOCKED`
+  - vendor_products.sync_result: |
+      A string indicating the result of the last synchronization attempt for the vendor-product.
+      If the sync was successful, this field will contain the success message, which is marked as ok.
+      If the sync failed, this field will contain the detail error message e.g Product Title is not
+      available for this locale.
+  - vendor_products.maximum_sales_quantity: |
+      The max quantity that of the vendor-product that can be sold.
+  - vendor_products.catalog_price_lc: |
+      Catalog price in local currency.
+  - vendor_products.catalog_original_price_lc: |
+      Product price in Catalog without discounts, in local currency.
+
+      `catalog_original_price_lc` is NOT NULL only if there was an update to the price defined for the product, i.e.
+      `catalog_price_lc`. `catalog_price_lc` will contain the latest price at all times, whereas the
+      `catalog_original_price_lc` will indicate the previous price, if any.
+
+      For example, say product "X" had 2 Euros as the price when it was created in Catalog. At that point in time, the
+      `catalog_price_lc` would be 2 Euros and `catalog_original_price_lc` would be NULL. Later, if the price for "X" got
+      modified to 1.2 Euros (e.g. due to promotion), `catalog_original_price_lc` will be 2 Euros and `catalog_price_lc`
+      will indicate 1.2 Euros.
+  - vendor_products.categories: |
+      A nested array which holds all the information regarding the categories.
+  - vendor_products.categories.category_level: |
+      Indicates the level of category tree. Level 1 indicates root category, maximum value of `category_level` shows the
+      immediate category the product is listed under on the Frontend.
+
+      For example, the product "Banana Chiquita" is listed under tree:
+
+      `Level 1 - "Fruits and Vegetables" > Level 2 - "Fruits" > Level 3 - "Banana"`
+  - vendor_products.categories.category_details: |
+      A nested array which holds granular category details at each level.
+  - vendor_products.categories.category_details.category_id: |
+      This field holds the `category_id` and NOT the UUID.
+  - vendor_products.categories.category_details.parent_category_id: |
+      This field holds the `category_id` of the parent_category.
+  - vendor_products.categories.category_details.global_category_id: |
+      This field holds the `global_category_id`.
+  - vendor_products.categories.category_details.category_name_local: |
+      Name of the category in local language.
+  - vendor_products.categories.category_details.category_name_english: |
+      Name of the category in English.
+  - vendor_products.categories.category_details.is_primary_category: |
+      A boolean which indicates if the category information is that of the primary category for the vendor-product
+      combination.
+  - vendor_products.categories.category_details.is_category_active: |
+      A boolean which indicates if the category is active or not in Catalog.
+  - vendor_products.categories.category_details.is_category_deleted: |
+      A boolean which indicates if the category is deleted or not in Catalog.
+  - vendor_products.categories.category_details.is_core: |
+      A boolean indicating whether this category is specified as a "CORE" category in Catalog. This can be seen in the
+      Catalog frontend.
+
+      Note: as of 2024-05-13, if this field is "false" it means that it is a "FEATURED" category and, if it is NULL,
+      then this information is unspecified for this category.
+  - vendor_products.tags: |
+      A nested array which holds information regarding the tags for a vendor-product combination.
+
+      Tags are labels that can be assigned to each product by vendors in the Catalog tool, e.g. "sold_by_weight", or
+      "cold". They are visible in the frontend of the Catalog tool in the bottom right section (as of 2024/05/02).
+  - vendor_products.tags.catalog_tag_id: |
+      The id of the tag.
+
+      Note: This field will be deprecated in the future.
+  - vendor_products.tags.tag_name: |
+      The name of the tag.
+
+      Note: This field will be deprecated in the future.
+  - vendor_products.tags.tag_type: |
+      The type of the tag. The tags can be of different types based on the use case, e.g. "sold_by_weight" is of type
+      "content" since it is used to provide information regarding the content of product.
+
+      For tag types, the current possible values are:
+
+      - content
+      - campaign
+      - nmr
+  - vendor_products.tags.tag_value: |
+      The value of the tag. The tags can be of different values under a certain tag type e.g. under type "campaign".
+      For example, under type campaign, there can be values like "campaign_benefits", "campaign_triggers".
+  - vendor_products.catalog_global_vendor_id: |
+      ID of the vendor in the Catalog system. These IDs are "global" only within the Catalog system. These IDs do not
+      match the `platform_vendor_id`.
+  - vendor_products.catalog_vendor_name: |
+      Name given to the vendor within the Catalog system.
+  - vendor_products.category_tree_source: |
+      A string indicating the source of the category tree for this vendor. Can be one of:
+
+      - `STANDARD_CATEGORY`
+      - `VENDOR`
+      - `CHAIN`
+  - vendor_products.platform_vendor_id: |
+      The ID of the vendor. These IDs are the actual `platform_vendor_id` and do match the ones used in other systems
+      and tables.
+  - vendor_products.catalog_remote_vendor_id: |
+      Either the `platform_vendor_id` or an internal Catalog UUID for the vendor, depending on the configuration of the
+      Catalog platform.
+
+      This is visible in the Catalog tool.
+  - vendor_products.catalog_additional_remote_vendor_id: |
+      Either the `platform_vendor_id` or an internal Catalog UUID for the vendor, depending on the configuration of the
+      Catalog platform.
+
+      This is visible in the Catalog tool.
+  - vendor_products.vendor_is_active: |
+      A boolean that takes the value `TRUE` when the vendor is active in the platform, `FALSE` otherwise.
+  - vendor_products.vendor_is_deleted: |
+      A boolean indicating whether the vendor has been deleted (`TRUE`) or not (`FALSE`) from the Catalog system.
+  - vendor_products.category_tree_id: |
+      ID of the category tree for the vendor in the Catalog system.
+  - vendor_products.category_tree_name_english: |
+      Name of the category tree in English assigned to the vendor.
+  - vendor_products.category_tree_name_local: |
+      Name of the category tree in local language assigned to the vendor.
+  - vendor_products.vendor_created_at_utc: |
+      A timestamp indicating when the vendor was created in the Catalog system (in UTC).
+  - vendor_products.vendor_updated_at_utc: |
+      A timestamp indicating when the vendor was last updated in the Catalog system (in UTC).
+  - vendor_products.vat_rate: |
+      Selling VAT rate of the product.
+  - vendor_products.warehouse_id: |
+      A UUID identifying the warehouse. The source of this is Inventory Management. For Local Shops, this will be NULL.
+  - vendor_products.warehouse_name: |
+      Name of the warehouse.
+  - vendor_products.is_dmart: |
+      Represents whether a warehouse is a dark-store or not. Sourced from `warehouses_v2`.
+  - vendor_products.sales_buffer: |
+      The number of items that the vendor keeps as buffer stock.
+  - vendor_products.row: |
+      Row where the product is physically found in the warehouse.
+
+      Note: this field is currently from LBI and will soon be migrated to LBIv2.
+  - vendor_products.rack: |
+      Rack where the product is physically found in the warehouse.
+
+      Note: this field is currently from LBI and will soon be migrated to LBIv2.
+  - vendor_products.shelf: |
+      Shelf where the product is physically found in the warehouse.
+
+      Note: this field is currently from LBI and will soon be migrated to LBIv2.
+  - vendor_products.storage_type: |
+      The type of storage where the product is stored. Can be one of:
+
+      - `AMBIENT`
+      - `CHILLED`
+      - `FROZEN`
+
+      New types might have been added since the last update of the column's description.
+
+      Note: this field is currently from LBI and will soon be migrated to LBIv2.
+  - vendor_products.location_movement_request_strategy: |
+      The strategy used during the last location movement requested. Can be one of:
+
+      - `DIRECT_UPDATE`: manual update.
+      - `PELICAN`: request initiated via the Pelican devices.
+      - `PUT_AWAY`: request initiated via the Put Away process.
+
+      Note: this field is currently from LBI and will soon be migrated to LBIv2.
+  - vendor_products.vendor_product_created_by: |
+      A dictionary which holds information about the creation of the vendor-product.
+  - vendor_products.vendor_product_created_by.client: |
+      The client application that created/added the product to the catalog.
+  - vendor_products.vendor_product_created_by.component: |
+      The component within the client that initiated the creation.
+  - last_execution_at: |
+      A timestamp indicating when the table was last executed at.
+
+      Note: this field is specifically for Machine Learning use cases.
+dependencies:
+  - warehouses_v2
+  - _dim_product_vat_rate_history
+  - qc_sales_buffer_history
+  - _catalog_vendor_products
+  - _products_location
+  - _catalog_chain_products
+  - sources
+create_shared_view: true
+filter_by_country: false
+filter_by_entity: true
+entity_id_column: global_entity_id
+columns:
+  - global_entity_id
+  - country_code
+  - catalog_master_product_id
+  - pim_product_id
+  - product_name
+  - product_name_english
+  - pim_product_name_english
+  - product_name_local
+  - pim_product_name_local
+  - local_language_locale
+  - product_description
+  - product_description_english
+  - product_description_local
+  - product_image_url
+  - pim_image_url
+  - is_chain_product_override
+  - is_sold_by_weight
+  - is_bundle
+  - weight_value
+  - weight_unit
+  - length_in_cm
+  - width_in_cm
+  - height_in_cm
+  - shelf_life_in_days
+  - product_type
+  - product_segment_id
+  - master_categories
+  - barcodes
+  - brand_name
+  - master_product_created_at_utc
+  - catalog_chain_product_id
+  - catalog_chain_id
+  - is_chain_from_dmart
+  - catalog_chain_name
+  - sku
+  - chain_product_created_at_utc
+  - is_weightable
+  - weightable_attributes
+  - is_evd_product
+  - vendor_products
+  - last_execution_at
+tests:
+  no_nulls: &no_nulls
+    test: no_nulls
+    frequency: daily
+  column_tests:
+    - column: global_entity_id
+      tests:
+        - <<: *no_nulls
+    - column: catalog_chain_product_id
+      tests:
+        - <<: *no_nulls
+  table_tests:
+    - test: no_duplicates
+      frequency: daily
+      params:
+        columns:
+          - global_entity_id
+          - catalog_chain_product_id

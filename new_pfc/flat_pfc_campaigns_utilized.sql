@@ -68,8 +68,10 @@ LEFT JOIN UNNEST(qc.benefits) AS b
 INNER JOIN dmart_skus AS ds
   ON qc.global_entity_id = ds.global_entity_id
   AND b.sku               = ds.sku
-WHERE qc.country_code = param_country_code
+INNER JOIN config cfg
+  ON qc.global_entity_id = cfg.global_entity_id
+WHERE qc.country_code = cfg.country_code
   AND qc.state        = 'READY'
   AND qc.is_valid     = TRUE
   AND qc.start_at_utc <= TIMESTAMP(date_fin)
-  AND qc.end_at_utc   >= TIMESTAMP(date_in)
+  AND qc.end_at_utc   >= TIMESTAMP(param_date_in)

@@ -3,39 +3,36 @@
 -- Dataset destino: dh-darkstores-live.csm_automated_tables
 -- Autor: Christian La Rosa
 -- ============================================================
--- PARAMS: Dinámicos desde pfc_config
--- Parámetro requerido:
---   param_global_entity_id : Entity code (e.g., PY_PE, TB_BH, TB_AE)
+-- Procesa TODOS los países activos en pfc_config en una sola ejecución
 -- Parámetros universales:
 --   param_date_in : 2025-01-01
 --   date_fin      : CURRENT_DATE()
 -- ============================================================
 
 -- Parámetros universales
-DECLARE param_global_entity_id  STRING;
 DECLARE param_date_in           DATE    DEFAULT DATE('2025-01-01');
 DECLARE date_fin                DATE    DEFAULT CURRENT_DATE();
-DECLARE param_country_code      STRING;
-
--- Lee country_code desde pfc_config
-SET param_country_code = (
-  SELECT country_code
-  FROM `dh-darkstores-live.csm_automated_tables.pfc_config`
-  WHERE global_entity_id = param_global_entity_id
-    AND is_active = TRUE
-  LIMIT 1
-);
 
 CREATE OR REPLACE TABLE `dh-darkstores-live.csm_automated_tables.pfc_campaigns_utilized`
 CLUSTER BY global_entity_id
 AS
 
-WITH dmart_skus AS (
+WITH config AS (
+  SELECT
+    global_entity_id
+    , country_code
+  FROM `dh-darkstores-live.csm_automated_tables.pfc_config`
+  WHERE is_active = TRUE
+)
+
+, dmart_skus AS (
   SELECT DISTINCT
     qcp.global_entity_id
     , qcp.sku
   FROM `fulfillment-dwh-production.cl_dmart.qc_catalog_products` AS qcp
   LEFT JOIN UNNEST(qcp.vendor_products) AS vp
+  INNER JOIN config cfg
+    ON qcp.global_entity_id = cfg.global_entity_id
   WHERE vp.is_dmart = TRUE
     AND vp.warehouse_id       IS NOT NULL
     AND vp.warehouse_id       != ''
@@ -66,9 +63,9 @@ LEFT JOIN UNNEST(qc.benefits) AS b
 INNER JOIN dmart_skus AS ds
   ON qc.global_entity_id = ds.global_entity_id
   AND b.sku               = ds.sku
-WHERE qc.global_entity_id = param_global_entity_id
-  AND qc.country_code   = param_country_code
-  AND qc.state          = 'READY'
+INNER JOIN config cfg
+  ON qc.global_entity_id = cfg.global_entity_id
+WHERE qc.state          = 'READY'
   AND qc.is_valid       = TRUE
   AND qc.start_at_utc   <= TIMESTAMP(date_fin)
   AND qc.end_at_utc     >= TIMESTAMP(param_date_in)

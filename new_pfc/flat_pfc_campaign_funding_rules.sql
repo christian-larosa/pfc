@@ -3,15 +3,13 @@
 -- Dataset destino: dh-darkstores-live.csm_automated_tables
 -- Autor: Christian La Rosa
 -- ============================================================
--- PARAMS (read from pfc_config)
---   param_global_entity_id : Entity code (e.g., PY_PE, TB_BH, TB_AE)
+-- Procesa TODOS los países activos en pfc_config en una sola ejecución
 -- Parámetros universales:
 --   param_date_in : 2025-01-01
 --   date_fin      : CURRENT_DATE()
 -- ============================================================
 
 -- Parámetros universales
-DECLARE param_global_entity_id  STRING;
 DECLARE param_date_in           DATE    DEFAULT DATE('2025-01-01');
 DECLARE date_fin                DATE    DEFAULT CURRENT_DATE();
 
@@ -19,14 +17,13 @@ CREATE OR REPLACE TABLE `dh-darkstores-live.csm_automated_tables.pfc_campaign_fu
 CLUSTER BY global_entity_id, campaign_id
 AS
 
--- Lee configuración desde pfc_config
+-- Lee configuración desde pfc_config para todos los países activos
 WITH config AS (
   SELECT
     global_entity_id
     , country_code
   FROM `dh-darkstores-live.csm_automated_tables.pfc_config`
-  WHERE global_entity_id = param_global_entity_id
-    AND is_active = TRUE
+  WHERE is_active = TRUE
 )
 
 , campaigns_with_benefits AS (

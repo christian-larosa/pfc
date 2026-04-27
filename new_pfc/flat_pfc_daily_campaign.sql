@@ -3,24 +3,20 @@
 -- Dataset destino: dh-darkstores-live.csm_automated_tables
 -- Autor: Christian La Rosa
 -- ============================================================
--- PARAMS (read from pfc_config)
---   param_global_entity_id : Entity code (e.g., PY_PE, TB_BH, TB_AE)
+-- Procesa TODOS los países activos en pfc_config en una sola ejecución
 -- ============================================================
-
-DECLARE param_global_entity_id  STRING;
 
 CREATE OR REPLACE TABLE `dh-darkstores-live.csm_automated_tables.pfc_daily_funding`
 CLUSTER BY global_entity_id, order_date, sku
 AS
 
--- Lee configuración desde pfc_config
+-- Lee configuración desde pfc_config para todos los países activos
 WITH config AS (
   SELECT
     global_entity_id
     , country_code
   FROM `dh-darkstores-live.csm_automated_tables.pfc_config`
-  WHERE global_entity_id = param_global_entity_id
-    AND is_active = TRUE
+  WHERE is_active = TRUE
 )
 
 , vendor_warehouse AS (
@@ -31,6 +27,8 @@ WITH config AS (
     , vp.warehouse_name
   FROM `fulfillment-dwh-production.cl_dmart.qc_catalog_products` AS qcp
   LEFT JOIN UNNEST(qcp.vendor_products) AS vp
+  INNER JOIN config cfg
+    ON qcp.global_entity_id = cfg.global_entity_id
   WHERE vp.is_dmart     = TRUE
     AND vp.warehouse_id IS NOT NULL
     AND vp.warehouse_id != ''

@@ -97,14 +97,21 @@ orders AS (
     , t3.discount_value_resolved
     , t3.campaign_end_date
     , t3.warehouse_name
+    , cfg.require_discount_to_charge
+    , cfg.missing_contract_fallback
+    , cfg.funding_value_convention
+    , cfg.join_strategy
+    , cfg.funding_source
   FROM orders AS o
+  LEFT JOIN config cfg
+    ON o.global_entity_id = cfg.global_entity_id
   LEFT JOIN `dh-darkstores-live.csm_automated_tables.pfc_daily_funding` AS t3
     ON  o.global_entity_id = t3.global_entity_id
     AND o.order_date        = t3.order_date
     AND o.warehouse_id      = t3.warehouse_id
     AND o.sku               = t3.sku
     AND (
-      (SELECT join_strategy FROM config LIMIT 1) != 'campaign_id'
+      cfg.join_strategy != 'campaign_id'
       OR o.campaign_id = t3.campaign_id
     )
 )
@@ -135,19 +142,24 @@ orders AS (
     , discount_value_resolved
     , campaign_end_date
     , warehouse_name
+    , require_discount_to_charge
+    , missing_contract_fallback
+    , funding_value_convention
+    , join_strategy
+    , funding_source
     , CASE
-        WHEN (SELECT require_discount_to_charge FROM config LIMIT 1) = TRUE
+        WHEN require_discount_to_charge = TRUE
          AND has_discount = FALSE               THEN 0.0
         WHEN contract_status = 'missing'
-         AND (SELECT missing_contract_fallback FROM config LIMIT 1) = 'skip' THEN 0.0
+         AND missing_contract_fallback = 'skip' THEN 0.0
         WHEN contract_status = 'missing'
-         AND (SELECT missing_contract_fallback FROM config LIMIT 1) = 'full_discount'
+         AND missing_contract_fallback = 'full_discount'
           THEN ROUND(unit_discount_lc * quantity_sold, 2)
         WHEN contract_status = 'explicit_zero'  THEN 0.0
         WHEN funding_unit_value IS NULL         THEN 0.0
-        WHEN (SELECT funding_value_convention FROM config LIMIT 1) = 'normalized'
+        WHEN funding_value_convention = 'normalized'
           THEN ROUND(funding_unit_value * quantity_sold, 2)
-        WHEN (SELECT funding_value_convention FROM config LIMIT 1) = 'per_benefit'
+        WHEN funding_value_convention = 'per_benefit'
           THEN ROUND(
                  funding_unit_value
                  * FLOOR(quantity_sold / NULLIF(trigger_qty_threshold, 0))
@@ -194,7 +206,7 @@ SELECT
   , d.funding_total_lc
 
   -- pfc_funding_amount_lc — switch gobernado por funding_source
-  , CASE (SELECT funding_source FROM config LIMIT 1)
+  , CASE d.funding_source
       WHEN 'negotiated' THEN d.funding_total_lc
       WHEN 'promotool'  THEN COALESCE(d.funding_v1_lc, 0.0)
     END AS pfc_funding_amount_lc
@@ -203,15 +215,15 @@ SELECT
   , COALESCE(d.funding_v1_lc, 0.0)             AS funding_v1_lc
 
   -- delta_lc: pfc_funding_amount_lc - funding_v1_lc
-  , CASE (SELECT funding_source FROM config LIMIT 1)
+  , CASE d.funding_source
       WHEN 'negotiated' THEN d.funding_total_lc - COALESCE(d.funding_v1_lc, 0.0)
       WHEN 'promotool'  THEN 0.0
     END AS delta_lc
 
   -- Flags audit
   , d.contract_status = 'missing'              AS fallback_applied
-  , (SELECT join_strategy FROM config LIMIT 1)                              AS join_method_used
-  , (SELECT funding_value_convention FROM config LIMIT 1)                   AS funding_value_convention_used
+  , d.join_strategy                                                         AS join_method_used
+  , d.funding_value_convention                                              AS funding_value_convention_used
   , CURRENT_TIMESTAMP()                        AS ingested_at
 
 FROM orders_dedup AS d

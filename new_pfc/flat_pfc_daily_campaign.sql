@@ -7,7 +7,7 @@
 --   param_global_entity_id : Entity code (e.g., PY_PE, TB_BH, TB_AE)
 -- ============================================================
 
-DECLARE param_global_entity_id  STRING  DEFAULT 'PY_PE';
+DECLARE param_global_entity_id  STRING;
 
 CREATE OR REPLACE TABLE `dh-darkstores-live.csm_automated_tables.pfc_daily_funding`
 CLUSTER BY global_entity_id, order_date, sku
@@ -31,10 +31,9 @@ WITH config AS (
     , vp.warehouse_name
   FROM `fulfillment-dwh-production.cl_dmart.qc_catalog_products` AS qcp
   LEFT JOIN UNNEST(qcp.vendor_products) AS vp
-  WHERE qcp.global_entity_id = param_global_entity_id
-    AND vp.is_dmart           = TRUE
-    AND vp.warehouse_id       IS NOT NULL
-    AND vp.warehouse_id       != ''
+  WHERE vp.is_dmart     = TRUE
+    AND vp.warehouse_id IS NOT NULL
+    AND vp.warehouse_id != ''
 )
 
 -- Expansión temporal: campaign × sku × date × warehouse

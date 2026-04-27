@@ -12,7 +12,7 @@
 -- ============================================================
 
 -- Parámetros universales
-DECLARE param_global_entity_id  STRING  DEFAULT 'PY_PE';
+DECLARE param_global_entity_id  STRING;
 DECLARE param_date_in           DATE    DEFAULT DATE('2025-01-01');
 DECLARE date_fin                DATE    DEFAULT CURRENT_DATE();
 DECLARE param_country_code      STRING;
@@ -36,8 +36,7 @@ WITH dmart_skus AS (
     , qcp.sku
   FROM `fulfillment-dwh-production.cl_dmart.qc_catalog_products` AS qcp
   LEFT JOIN UNNEST(qcp.vendor_products) AS vp
-  WHERE qcp.global_entity_id = param_global_entity_id
-    AND vp.is_dmart = TRUE
+  WHERE vp.is_dmart = TRUE
     AND vp.warehouse_id       IS NOT NULL
     AND vp.warehouse_id       != ''
 )

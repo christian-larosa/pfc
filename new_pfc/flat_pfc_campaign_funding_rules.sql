@@ -11,7 +11,7 @@
 -- ============================================================
 
 -- Parámetros universales
-DECLARE param_global_entity_id  STRING  DEFAULT 'PY_PE';
+DECLARE param_global_entity_id  STRING;
 DECLARE param_date_in           DATE    DEFAULT DATE('2025-01-01');
 DECLARE date_fin                DATE    DEFAULT CURRENT_DATE();
 

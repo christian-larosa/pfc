@@ -11,7 +11,7 @@
 -- ============================================================
 
 -- ── Params de entidad ─────────────────────────────────────────
-DECLARE param_global_entity_id       STRING  DEFAULT 'PY_PE';
+DECLARE param_global_entity_id       STRING;
 DECLARE param_date_in                DATE    DEFAULT DATE('2025-01-01');
 DECLARE date_fin                     DATE    DEFAULT CURRENT_DATE();
 
@@ -72,7 +72,6 @@ orders AS (
     , CAST(spfc.supplier_id AS STRING)  AS supplier_id
     , spfc.supplier_name
   FROM `fulfillment-dwh-production.cl_dmart._spfc_products` AS spfc
-  WHERE spfc.global_entity_id = param_global_entity_id
 )
 
 -- JOIN strategy: date_warehouse_sku
